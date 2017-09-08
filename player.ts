@@ -16,12 +16,12 @@ class Player {
         x: 8,
         y: 8,
     };
-    public jumpSpeed = 4;
+    public jumpSpeed = 6;
     public acceleration = {
-        x: .2,
-        y: .1,
+        x: .4,
+        y: .2,
     };
-    public height = 20;
-    public width = 10;
+    public height = 29;
+    public width = 20;
     public size = {x: this.width, y: this.height};
 }

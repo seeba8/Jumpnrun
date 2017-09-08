@@ -17,13 +17,13 @@ class Player {
             x: 8,
             y: 8,
         };
-        this.jumpSpeed = 4;
+        this.jumpSpeed = 6;
         this.acceleration = {
-            x: .2,
-            y: .1,
+            x: .4,
+            y: .2,
         };
-        this.height = 20;
-        this.width = 10;
+        this.height = 29;
+        this.width = 20;
         this.size = { x: this.width, y: this.height };
     }
 }
