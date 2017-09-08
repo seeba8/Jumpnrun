@@ -1,13 +1,28 @@
 "use strict";
+/**
+ * TODO:
+ * Add slopes
+ * - ts/4
+ * - ts/2
+ * Add maps > canvas (scrolling)
+ * Add traction for slowing down / accelerating (ice/mud)
+ * Add ladders
+ * Add wind
+ * Add water (underwater lower gravity)
+ * Add semipermeable elements:
+ * - only up
+ * - press down to go down
+ * Add movable objects
+ * Add spikes
+ * Add monsters (AI)
+ */
 let MyGame = { lastTick: 0, stopMain: 0 };
 const DEBUGDIV = document.getElementById("debugdiv");
 const CANVASES = {
-    DEBUG: document.getElementById("debug"),
     MOVABLE: document.getElementById("canvas-movable"),
     STATIC: document.getElementById("canvas-static"),
 };
 const CTX = {
-    debug: CANVASES.DEBUG.getContext("2d"),
     mov: CANVASES.MOVABLE.getContext("2d"),
     static: CANVASES.STATIC.getContext("2d"),
 };
@@ -50,11 +65,8 @@ let lastTick = 0;
         }
     }
     function renderDebug() {
-        // CTX.debug.clearRect(0, 0, world.pixelWidth, world.pixelHeight);
-        // CTX.debug.fillStyle = "black";
         DEBUGDIV.textContent = "";
         for (const msg of debugQueue) {
-            // CTX.debug.fillText(debugQueue[i], 10, 20 + 10 * i);
             DEBUGDIV.textContent += msg + "\r\n";
         }
     }

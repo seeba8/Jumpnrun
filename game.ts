@@ -1,14 +1,30 @@
 "use strict";
-
+/**
+ * TODO:
+ * Add slopes
+ * - ts/4
+ * - ts/2
+ * Allow maps > canvas (scrolling)
+ * Make tilesize scale with screensize (fixed number of tiles on 16:9 screen)
+ * - Borders if screen != 16:9
+ * Add traction for slowing down / accelerating (ice/mud)
+ * Add ladders
+ * Add wind
+ * Add water (underwater lower gravity)
+ * Add semipermeable elements:
+ * - only up
+ * - press down to go down
+ * Add movable objects
+ * Add spikes
+ * Add monsters (AI)
+ */
 let MyGame = { lastTick: 0, stopMain: 0 };
 const DEBUGDIV = (document.getElementById("debugdiv") as HTMLPreElement);
 const CANVASES = {
-  DEBUG: (document.getElementById("debug") as HTMLCanvasElement),
   MOVABLE: (document.getElementById("canvas-movable") as HTMLCanvasElement),
   STATIC: (document.getElementById("canvas-static") as HTMLCanvasElement),
 };
 const CTX = {
-  debug: CANVASES.DEBUG.getContext("2d"),
   mov: CANVASES.MOVABLE.getContext("2d"),
   static: CANVASES.STATIC.getContext("2d"),
 };
