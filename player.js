@@ -1,9 +1,10 @@
 "use strict";
 class Player {
     constructor() {
+        this.onGround = false;
         this.position = {
-            x: 100.,
-            y: 100.,
+            x: 310.,
+            y: 540.,
         };
         this.speed = {
             x: 0.,
@@ -14,7 +15,7 @@ class Player {
             y: 0.,
         };
         this.maxSpeed = {
-            x: 8,
+            x: 1,
             y: 8,
         };
         this.jumpSpeed = 6;
@@ -22,9 +23,11 @@ class Player {
             x: .4,
             y: .2,
         };
-        this.height = 29;
-        this.width = 20;
-        this.size = { x: this.width, y: this.height };
+    }
+    get size() {
+        return { x: Player.width, y: Player.height };
     }
 }
+Player.height = 32;
+Player.width = 32;
 //# sourceMappingURL=player.js.map

@@ -2,11 +2,14 @@
 /**
  * TODO:
  * Add slopes
- * - ts/4
- * - ts/2
+ * - ts/4?
+ * - ts
+ * - inverse slopes (decoration on roof)
+ * Walk up slopes
  * Allow maps > canvas (scrolling)
  * Make tilesize scale with screensize (fixed number of tiles on 16:9 screen)
  * - Borders if screen != 16:9
+ * Scroll screen/viewport accordingly
  * Add traction for slowing down / accelerating (ice/mud)
  * Add ladders
  * Add wind
@@ -61,13 +64,14 @@ let lastTick = 0;
 
   function renderStatic() {
     const ts = world.tilesize;
+    CTX.static.fillStyle = CTX.static.createPattern(new Air().image, "repeat");
+    CTX.static.fillRect(0, 0, world.width * ts, world.height * ts);
     for (let y = 0; y < world.height; y++) {
       for (let x = 0; x < world.width; x++) {
-        if (world.grid[y][x] instanceof Wall) {
-          CTX.static.fillStyle = "green";
-          CTX.static.fillRect(x * ts, y * ts, ts, ts);
+          CTX.static.drawImage(world.grid[y][x].image, x * ts, y * ts);
+          if (world.grid[y][x] instanceof Wall) {
           CTX.static.fillStyle = "black";
-          CTX.static.fillText(x % 10 + "", x * ts, y * ts + 10);
+          CTX.static.fillText(x % 10 + "", x * ts + 1, y * ts + 10);
         }
       }
     }
@@ -79,7 +83,7 @@ let lastTick = 0;
       DEBUGDIV.textContent += msg + "\r\n";
     }
   }
-
+  /*
   function playerIsGrounded(): boolean {
     const ts = world.tilesize;
     // Possible as long as we have no slopes
@@ -93,11 +97,11 @@ let lastTick = 0;
     // tslint:disable-next-line:no-bitwise
     const y = ~~((player.position.y + player.size.y) / ts);
     return world.grid[y][leftTile].collide || world.grid[y][rightTile].collide;
-
   }
+  */
 
   function movePlayer(dt: number = 1): void {
-    function movePlayerOnAxis(axis: "x" | "y") {
+    function movePlayerX(axis: "x" | "y") {
       const other = (axis === "x" ? "y" : "x");
       const obstacles = Array<{ x: number, y: number }>();
       const tilesize = world.tilesize;
@@ -164,12 +168,104 @@ let lastTick = 0;
               Math.sign(player.speed[axis]) * walkDistance)/* * 100) / 100*/;
       }
     }
+    function movePlayerY() {
+      const obstacles = Array<{ x: number, y: number }>();
+      const tilesize = world.tilesize;
+      const forwardEdge = player.speed.y > 0 ? player.position.y + player.size.y : player.position.y;
+      const rowmin = Math.floor(player.position.x / tilesize);
+      const rowmax = Math.ceil((player.position.x  + player.size.x) / tilesize) - 1;
+
+      /**
+       * Needs separate code for X and Y axis, as we nee to loop the other axis first,
+       * in order to be able to break after the first hit.
+       * For example:
+       *  | | |
+       *  W | |
+       *    | W
+       *    W
+       *
+       * This would not work if we approach it row-wise.
+       * Therefore, the outer loop decides the column, then we follow through on that column
+       * until we have a hit
+       */
+      for (let x = rowmin; x <= rowmax; x++) {
+        for (let y = Math.floor(forwardEdge / tilesize);
+          y < world.height && y > -1;
+          y += Math.sign(player.speed.y)) {
+          if (world.grid[y][x].collide) {
+            obstacles.push({ x, y });
+            debug(x, y, world.grid[y][x].top(player.position.x % Tile.TS));
+            break;
+          }
+        }
+      }
+      /**
+       * Now, after we have a list of obstacle candidates, we find the closest static obstacle.
+       * This is done by looping through them. Then, we filter those out that are at least one tile
+       * further away than the current best (or replace the current best with the new one if it is at least
+       * one tile closer).
+       * If the two tiles are in the same row, we need to check to which the "top" value at
+       * player.position.x % tilesize is smaller. tile.top describes the distance between the top of the
+       * tile and the actual top. 0: full block, .5*ts: half block (8 at a ts of 16)
+       */
+      let closestObstacle: { x: number, y: number };
+      for (const o of obstacles) {
+        if (closestObstacle === undefined) {
+          closestObstacle = o;
+          continue; // Implicitly done anyway, but makes it clearer
+        } else {
+          if (Math.sign(player.speed.y) * o.y > Math.sign(player.speed.y) * closestObstacle.y) {
+            /**
+             * It can't be closer. This might not be a nice way to filter those out,
+             * but it should work and I can't figure out a better way.
+             * We multiply by -1 when jumping, because then (-)40 > (-) 41,
+             * that is, the 40 is out of reach when there is a 41 to bang the head against
+             */
+          } else if (Math.sign(player.speed.y) * o.y < Math.sign(player.speed.y) * closestObstacle.y) {
+            /**
+             * It is at least one tile closer than the other one. So we use it as new closest obstacle
+             */
+            closestObstacle = o;
+            continue; // Not necessary, but just to be sure, same as above
+          } else {
+              /**
+               * They both have the same y value, so we need to figure it out more precisely using the
+               * real distance to the top of the element
+               * TODO: bottom also for negative speed.y (jumping against inverse slope)
+               */
+            if (world.grid[o.y][o.x].top(player.position.x % Tile.TS) <
+              world.grid[closestObstacle.y][closestObstacle.x].top(player.position.x % Tile.TS)) {
+              closestObstacle = o;
+            }
+          }
+        }
+      }
+      debug(closestObstacle.x, closestObstacle.y);
+      for (const obstacle of world.movables) {
+        // Check if it is closer
+      }
+      const distToWall = Math.abs(world.grid[closestObstacle.y][closestObstacle.x].top(player.position.x % Tile.TS) +
+        closestObstacle.y * tilesize + (player.speed.y < 0 ? tilesize : 0) -
+        (player.position.y + (player.speed.y > 0 ? player.size.y : 0)));
+      const walkDistance = Math.abs(player.speed.y * dt);
+      if (distToWall < walkDistance) {
+        player.position.y = player.position.y + Math.sign(player.speed.y) * distToWall;
+        // We only want to set onGround to true if the player was falling,
+        // Not if she was just hitting her head and colliding with a roof
+        player.onGround = player.speed.y > 0;
+        player.speed.y = 0;
+
+      } else {
+        player.position.y = player.position.y + Math.sign(player.speed.y) * walkDistance;
+        player.onGround = false;
+      }
+    }
 
     if (player.speed.x !== 0) {
-      movePlayerOnAxis("x");
+      movePlayerX("x");
     }
     if (player.speed.y !== 0) {
-      movePlayerOnAxis("y");
+      movePlayerY();
     }
   }
 
@@ -180,13 +276,13 @@ let lastTick = 0;
     const dt = (tick - lastTick) / (1000 / 60);
     player.targetSpeed.y = world.gravity;
     if (keymap[65]) {
-      player.targetSpeed.x = -4;
+      player.targetSpeed.x = -player.maxSpeed.x;
     } else if (keymap[68]) {
-      player.targetSpeed.x = 4;
+      player.targetSpeed.x = player.maxSpeed.x;
     } else {
       player.targetSpeed.x = 0;
     }
-    if (keymap[32] && playerIsGrounded()) {
+    if (keymap[32] && player.onGround) {
       player.speed.y = -player.jumpSpeed;
     } else if (!keymap[32] && player.speed.y < -player.jumpSpeed / 2) {
       player.speed.y = -player.jumpSpeed / 2;
@@ -216,13 +312,14 @@ let lastTick = 0;
     debugQueue.push(`Speed: ${Number(player.speed.x).toFixed(2)}, ${Number(player.speed.y).toFixed(2)}`);
     debugQueue.push(`TargSpeed: ${Number(player.targetSpeed.x).toFixed(2)},` +
             ` ${Number(player.targetSpeed.y).toFixed(2)}`);
-    debugQueue.push("Grounded: " + playerIsGrounded());
+    debugQueue.push("Grounded: " + player.onGround);
     // tslint:disable-next-line:no-bitwise
     const fps = ~~(1000 / (tFrame - lastTick));
     debugQueue.push("FPS: " + fps);
   }
 
   function main(tFrame) {
+    // lastTick = tFrame - 16;
     clearMovable();
     debugQueue = [];
     addDefaultDebug(tFrame);
@@ -235,6 +332,7 @@ let lastTick = 0;
   renderStatic();
   main(0);
   window.addEventListener("keydown", keyHandler);
+  // window.addEventListener("click", () => {window.requestAnimationFrame(main)});
   window.addEventListener("keyup", keyHandler);
   window.addEventListener("blur",  () => {
     console.log("PAUSE");

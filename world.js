@@ -3,7 +3,7 @@ class World {
     constructor(width = 60, height = 40, gravity = 8) {
         this.grid = Array();
         this.movables = Array();
-        this.tilesize = 17;
+        this.tilesize = 16;
         this.size = { x: this.width, y: this.height };
         this.width = width;
         this.height = height;
@@ -22,6 +22,12 @@ class World {
                 }
             }
         }
+        this.grid[this.height - 2][10] = new Wall07();
+        this.grid[this.height - 2][11] = new Wall815();
+        this.grid[this.height - 2][9] = new Wall();
+        this.grid[this.height - 2][20] = new Wall158();
+        this.grid[this.height - 2][21] = new Wall70();
+        this.grid[this.height - 2][22] = new Wall();
     }
     get pixelWidth() {
         return this.width * this.tilesize;

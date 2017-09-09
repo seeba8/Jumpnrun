@@ -1,8 +1,13 @@
 "use strict";
 class Player {
+    public static height = 32;
+    public static width = 32;
+
+    public onGround: boolean = false;
+
     public position = {
-        x: 100.,
-        y: 100.,
+        x: 310.,
+        y: 540.,
     };
     public speed = {
         x: 0.,
@@ -13,7 +18,7 @@ class Player {
         y: 0.,
     };
     public maxSpeed = {
-        x: 8,
+        x: 1,
         y: 8,
     };
     public jumpSpeed = 6;
@@ -21,7 +26,7 @@ class Player {
         x: .4,
         y: .2,
     };
-    public height = 29;
-    public width = 20;
-    public size = {x: this.width, y: this.height};
+    get size() {
+        return {x: Player.width, y: Player.height};
+    }
 }

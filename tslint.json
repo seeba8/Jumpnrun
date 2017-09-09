@@ -5,6 +5,7 @@
     ],
     "jsRules": {},
     "rules": {
+        "no-unused-variable": true,
         "max-classes-per-file": false,
         "no-reference": false,
         "no-console": false,
