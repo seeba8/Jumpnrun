@@ -201,20 +201,22 @@ let stepwise = false;
       if (distToWall < walkDistance) {
         if (lowerSideOfSlope) {
           player.position.x += Math.sign(player.speed.x) * walkDistance;
-          if (player.speed.x < 0) {
-            // tslint:disable-next-line:no-bitwise
-            const yDiff = world.grid[co.y][~~(player.position.x / Tile.TS)]
-            .top((player.position.x) % Tile.TS);
-            // player.position.y = co.y * Tile.TS + yDiff;
-            player.position.y = co.y * tilesize + yDiff - player.size.y;
-            debug(yDiff);
-          } else {
-            // tslint:disable-next-line:no-bitwise
-            const yDiff = world.grid[co.y][~~((player.position.x + player.size.x) / Tile.TS)]
-            .top((player.position.x + player.size.x) % Tile.TS);
-            // player.position.y = co.y * Tile.TS + yDiff;
-            player.position.y = co.y * tilesize + yDiff - player.size.y;
-            debug(yDiff);
+          if (player.onGround) {
+            if (player.speed.x < 0) {
+              // tslint:disable-next-line:no-bitwise
+              const yDiff = world.grid[co.y][~~(player.position.x / Tile.TS)]
+              .top((player.position.x) % Tile.TS);
+              // player.position.y = co.y * Tile.TS + yDiff;
+              player.position.y = co.y * tilesize + yDiff - player.size.y;
+              debug(yDiff);
+            } else {
+              // tslint:disable-next-line:no-bitwise
+              const yDiff = world.grid[co.y][~~((player.position.x + player.size.x) / Tile.TS)]
+              .top((player.position.x + player.size.x) % Tile.TS);
+              // player.position.y = co.y * Tile.TS + yDiff;
+              player.position.y = co.y * tilesize + yDiff - player.size.y;
+              debug(yDiff);
+            }
           }
         } else {
           player.position.x = /*Math.round(*/(player.position.x +
@@ -325,7 +327,7 @@ let stepwise = false;
       movePlayerX();
     }
     if (player.speed.y !== 0) {
-      movePlayerY();
+       movePlayerY();
     }
   }
 
@@ -335,16 +337,16 @@ let stepwise = false;
     }
     const dt = (tick - lastTick) / (1000 / 60);
     player.targetSpeed.y = world.gravity;
-    if (keymap[65]) {
+    if (keymap[65] || keymap[37]) {
       player.targetSpeed.x = -player.maxSpeed.x;
-    } else if (keymap[68]) {
+    } else if (keymap[68] || keymap[39]) {
       player.targetSpeed.x = player.maxSpeed.x;
     } else {
       player.targetSpeed.x = 0;
     }
-    if (keymap[32] && player.onGround) {
+    if ((keymap[32] || keymap[38] || keymap[87]) && player.onGround) {
       player.speed.y = -player.jumpSpeed;
-    } else if (!keymap[32] && player.speed.y < -player.jumpSpeed / 2) {
+    } else if (!(keymap[32] || keymap[38] || keymap[87]) && player.speed.y < -player.jumpSpeed / 2) {
       player.speed.y = -player.jumpSpeed / 2;
     }
 

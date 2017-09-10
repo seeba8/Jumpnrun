@@ -27,7 +27,11 @@ class World {
         this.grid[this.height - 2][9] = new Wall();
         this.grid[this.height - 2][20] = new Wall158();
         this.grid[this.height - 2][21] = new Wall70();
-        this.grid[this.height - 2][22] = new Wall();
+        this.grid[this.height - 3][22] = new Wall158();
+        this.grid[this.height - 3][23] = new Wall70();
+        this.grid[this.height - 4][24] = new Wall158();
+        this.grid[this.height - 4][25] = new Wall70();
+        this.grid[this.height - 4][26] = new Wall();
     }
     get pixelWidth() {
         return this.width * this.tilesize;
