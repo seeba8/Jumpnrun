@@ -6,8 +6,8 @@ class Player {
     public onGround: boolean = false;
 
     public position = {
-        x: 310.,
-        y: 540.,
+        x: 262.,
+        y: 592.,
     };
     public speed = {
         x: 0.,
@@ -18,7 +18,7 @@ class Player {
         y: 0.,
     };
     public maxSpeed = {
-        x: 1,
+        x: 2,
         y: 8,
     };
     public jumpSpeed = 6;

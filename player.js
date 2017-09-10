@@ -3,8 +3,8 @@ class Player {
     constructor() {
         this.onGround = false;
         this.position = {
-            x: 310.,
-            y: 540.,
+            x: 262.,
+            y: 592.,
         };
         this.speed = {
             x: 0.,
@@ -15,7 +15,7 @@ class Player {
             y: 0.,
         };
         this.maxSpeed = {
-            x: 1,
+            x: 2,
             y: 8,
         };
         this.jumpSpeed = 6;

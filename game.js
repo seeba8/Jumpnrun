@@ -6,6 +6,7 @@
  * - ts
  * - inverse slopes (decoration on roof)
  * Walk up slopes
+ * Adjust player sink-in on slopes to middle of player instead of edge
  * Allow maps > canvas (scrolling)
  * Make tilesize scale with screensize (fixed number of tiles on 16:9 screen)
  * - Borders if screen != 16:9
@@ -22,7 +23,7 @@
  * Add monsters (AI)
  */
 let MyGame = { lastTick: 0, stopMain: 0 };
-const DEBUGDIV = document.getElementById("debugdiv");
+const DEBUGPRE = document.getElementById("debugpre");
 const CANVASES = {
     MOVABLE: document.getElementById("canvas-movable"),
     STATIC: document.getElementById("canvas-static"),
@@ -41,6 +42,7 @@ let player = new Player();
 let world = new World();
 let keymap = {};
 let lastTick = 0;
+let stepwise = false;
 (() => {
     let debugQueue = [];
     function keyHandler(e) {
@@ -58,22 +60,32 @@ let lastTick = 0;
     }
     function renderStatic() {
         const ts = world.tilesize;
+        CTX.static.strokeStyle = "black";
         CTX.static.fillStyle = CTX.static.createPattern(new Air().image, "repeat");
         CTX.static.fillRect(0, 0, world.width * ts, world.height * ts);
         for (let y = 0; y < world.height; y++) {
             for (let x = 0; x < world.width; x++) {
+                if (world.grid[y][x] instanceof Air) {
+                    continue;
+                }
                 CTX.static.drawImage(world.grid[y][x].image, x * ts, y * ts);
+                CTX.static.strokeRect(x * ts, y * ts, ts, ts);
                 if (world.grid[y][x] instanceof Wall) {
                     CTX.static.fillStyle = "black";
-                    CTX.static.fillText(x % 10 + "", x * ts + 1, y * ts + 10);
+                    if (x === 0) {
+                        CTX.static.fillText(y % 10 + "", x * ts + 1, y * ts + 10);
+                    }
+                    else {
+                        CTX.static.fillText(x % 10 + "", x * ts + 1, y * ts + 10);
+                    }
                 }
             }
         }
     }
     function renderDebug() {
-        DEBUGDIV.textContent = "";
+        DEBUGPRE.textContent = "";
         for (const msg of debugQueue) {
-            DEBUGDIV.textContent += msg + "\r\n";
+            DEBUGPRE.textContent += msg + "\r\n";
         }
     }
     /*
@@ -93,13 +105,12 @@ let lastTick = 0;
     }
     */
     function movePlayer(dt = 1) {
-        function movePlayerX(axis) {
-            const other = (axis === "x" ? "y" : "x");
+        function movePlayerX() {
             const obstacles = Array();
             const tilesize = world.tilesize;
-            const forwardEdge = player.speed[axis] > 0 ? player.position[axis] + player.size[axis] : player.position[axis];
-            const rowmin = Math.floor(player.position[other] / tilesize);
-            const rowmax = Math.ceil((player.position[other] + player.size[other]) / tilesize) - 1;
+            const forwardEdge = player.speed.x > 0 ? player.position.x + player.size.x : player.position.x;
+            const rowmin = Math.floor(player.position.y / tilesize);
+            const rowmax = Math.ceil((player.position.y + player.size.y) / tilesize) - 1;
             /**
              * Needs separate code for X and Y axis, as we nee to loop the other axis first,
              * in order to be able to break after the first hit.
@@ -109,52 +120,104 @@ let lastTick = 0;
              * ---------------W break
              * This would not work if we approach it column-wise
              */
-            if (axis === "x") {
-                for (let y = rowmin; y <= rowmax; y++) {
-                    for (let x = Math.floor(forwardEdge / tilesize); x < world.width && x > -1; x += Math.sign(player.speed.x)) {
-                        if (world.grid[y][x].collide) {
-                            obstacles.push({ x, y });
-                            break;
-                        }
-                    }
-                }
-            }
-            else {
-                for (let x = rowmin; x <= rowmax; x++) {
-                    for (let y = Math.floor(forwardEdge / tilesize); y < world.height && y > -1; y += Math.sign(player.speed.y)) {
-                        if (world.grid[y][x].collide) {
-                            obstacles.push({ x, y });
-                            break;
-                        }
+            for (let y = rowmin; y <= rowmax; y++) {
+                for (let x = Math.floor(forwardEdge / tilesize); x < world.width && x > -1; x += Math.sign(player.speed.x)) {
+                    if (world.grid[y][x].collide) {
+                        obstacles.push({ x, y });
+                        debug(x, y);
+                        break;
                     }
                 }
             }
             let closestObstacle;
+            /*
+            for (const o of obstacles) {
+              if (closestObstacle === undefined) {
+                closestObstacle = o;
+              } else {
+                if (Math.abs(o.x * tilesize - forwardEdge) <
+                  Math.abs(closestObstacle.x * tilesize - forwardEdge)) {
+                  closestObstacle = o;
+                }
+              }
+            }
+            */
             for (const o of obstacles) {
                 if (closestObstacle === undefined) {
                     closestObstacle = o;
+                    continue; // Implicitly done anyway, but makes it clearer
                 }
                 else {
-                    if (Math.abs(o[axis] * tilesize - forwardEdge) <
-                        Math.abs(closestObstacle[axis] * tilesize - forwardEdge)) {
+                    if (Math.sign(player.speed.x) * o.x > Math.sign(player.speed.x) * closestObstacle.x) {
+                        /**
+                         * It can't be closer. This might not be a nice way to filter those out,
+                         * but it should work and I can't figure out a better way.
+                         * We multiply by -1 when going left, because then (-)40 > (-) 41
+                         */
+                    }
+                    else if (Math.sign(player.speed.x) * o.x < Math.sign(player.speed.x) * closestObstacle.x) {
+                        /**
+                         * It is at least one tile closer than the other one. So we use it as new closest obstacle
+                         */
                         closestObstacle = o;
+                        continue; // Not necessary, but just to be sure, same as above
                     }
                 }
             }
+            debug("Closest", closestObstacle.x, closestObstacle.y);
             for (const obstacle of world.movables) {
                 // Check if it is closer
+                // If it is, set ignoreSlope to false
             }
-            const distToWall = Math.abs(closestObstacle[axis] * tilesize + (player.speed[axis] < 0 ? tilesize : 0) -
-                (player.position[axis] + (player.speed[axis] > 0 ? player.size[axis] : 0)));
-            const walkDistance = Math.abs(player.speed[axis] * dt);
-            if (distToWall < walkDistance) {
-                player.position[axis] = (player.position[axis] +
-                    Math.sign(player.speed[axis]) * distToWall) /* * 100) / 100*/;
-                player.speed[axis] = 0;
+            const goingLeft = Math.sign(player.speed.x) === -1;
+            const co = closestObstacle;
+            let lowerSideOfSlope = false;
+            if (world.grid[co.y][co.x] instanceof Slope) {
+                lowerSideOfSlope = goingLeft ? world.grid[co.y][co.x].top(Tile.TS) > world.grid[co.y][co.x].top(0) :
+                    world.grid[co.y][co.x].top(0) > world.grid[co.y][co.x].top(Tile.TS);
+                debug(`Slope ${lowerSideOfSlope ? "Low" : "High"}`);
+            }
+            let distToWall = 0;
+            if (player.speed.x < 0) {
+                distToWall = player.position.x - (co.x * tilesize + tilesize);
             }
             else {
-                player.position[axis] = (player.position[axis] +
-                    Math.sign(player.speed[axis]) * walkDistance) /* * 100) / 100*/;
+                distToWall = co.x * tilesize - (player.position.x + player.size.x);
+            }
+            // const distToWall = Math.abs(co.x * tilesize + (player.speed.x < 0 ? tilesize : 0) -
+            //   (player.position.x + (player.speed.x > 0 ? player.size.x : 0)));
+            debug("distToWall", distToWall);
+            const walkDistance = Math.abs(player.speed.x * dt);
+            debug(distToWall, walkDistance);
+            if (distToWall < walkDistance) {
+                if (lowerSideOfSlope) {
+                    player.position.x += Math.sign(player.speed.x) * walkDistance;
+                    if (player.speed.x < 0) {
+                        // tslint:disable-next-line:no-bitwise
+                        const yDiff = world.grid[co.y][~~(player.position.x / Tile.TS)]
+                            .top((player.position.x) % Tile.TS);
+                        // player.position.y = co.y * Tile.TS + yDiff;
+                        player.position.y = co.y * tilesize + yDiff - player.size.y;
+                        debug(yDiff);
+                    }
+                    else {
+                        // tslint:disable-next-line:no-bitwise
+                        const yDiff = world.grid[co.y][~~((player.position.x + player.size.x) / Tile.TS)]
+                            .top((player.position.x + player.size.x) % Tile.TS);
+                        // player.position.y = co.y * Tile.TS + yDiff;
+                        player.position.y = co.y * tilesize + yDiff - player.size.y;
+                        debug(yDiff);
+                    }
+                }
+                else {
+                    player.position.x = (player.position.x +
+                        Math.sign(player.speed.x) * distToWall) /* * 100) / 100*/;
+                    player.speed.x = 0;
+                }
+            }
+            else {
+                player.position.x = (player.position.x +
+                    Math.sign(player.speed.x) * walkDistance) /* * 100) / 100*/;
             }
         }
         function movePlayerY() {
@@ -180,7 +243,7 @@ let lastTick = 0;
                 for (let y = Math.floor(forwardEdge / tilesize); y < world.height && y > -1; y += Math.sign(player.speed.y)) {
                     if (world.grid[y][x].collide) {
                         obstacles.push({ x, y });
-                        debug(x, y, world.grid[y][x].top(player.position.x % Tile.TS));
+                        // debug(x, y, world.grid[y][x].top(player.position.x % Tile.TS));
                         break;
                     }
                 }
@@ -229,7 +292,7 @@ let lastTick = 0;
                     }
                 }
             }
-            debug(closestObstacle.x, closestObstacle.y);
+            // debug(closestObstacle.x, closestObstacle.y);
             for (const obstacle of world.movables) {
                 // Check if it is closer
             }
@@ -250,7 +313,7 @@ let lastTick = 0;
             }
         }
         if (player.speed.x !== 0) {
-            movePlayerX("x");
+            movePlayerX();
         }
         if (player.speed.y !== 0) {
             movePlayerY();
@@ -304,12 +367,19 @@ let lastTick = 0;
         const fps = ~~(1000 / (tFrame - lastTick));
         debugQueue.push("FPS: " + fps);
     }
+    function rafHandler() {
+        window.requestAnimationFrame(main);
+    }
     function main(tFrame) {
-        // lastTick = tFrame - 16;
+        if (!stepwise) {
+            MyGame.stopMain = window.requestAnimationFrame(main);
+        }
+        else {
+            lastTick = tFrame - 1000 / 60;
+        }
         clearMovable();
         debugQueue = [];
         addDefaultDebug(tFrame);
-        MyGame.stopMain = window.requestAnimationFrame(main);
         update(tFrame);
         renderMovable();
         renderDebug();
@@ -318,7 +388,6 @@ let lastTick = 0;
     renderStatic();
     main(0);
     window.addEventListener("keydown", keyHandler);
-    // window.addEventListener("click", () => {window.requestAnimationFrame(main)});
     window.addEventListener("keyup", keyHandler);
     window.addEventListener("blur", () => {
         console.log("PAUSE");
@@ -328,6 +397,15 @@ let lastTick = 0;
     window.addEventListener("focus", () => {
         console.log("CONTINUE");
         MyGame.stopMain = window.requestAnimationFrame(main);
+    });
+    document.getElementById("stepwise").addEventListener("change", (e) => {
+        stepwise = e.target.checked;
+        if (stepwise) {
+            window.addEventListener("click", rafHandler);
+        }
+        else {
+            window.removeEventListener("click", rafHandler);
+        }
     });
 })();
 //# sourceMappingURL=game.js.map

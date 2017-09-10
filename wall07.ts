@@ -1,4 +1,4 @@
-class Wall07 extends Tile {
+class Wall07 extends Slope {
     public collide = true;
     public movable = false;
     constructor() {

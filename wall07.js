@@ -1,4 +1,4 @@
-class Wall07 extends Tile {
+class Wall07 extends Slope {
     constructor() {
         super();
         this.collide = true;

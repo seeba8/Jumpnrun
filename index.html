@@ -9,6 +9,7 @@
     <script src="tile.js"></script>
     <script src="wall.js"></script>
     <script src="air.js"></script>
+    <script src="slope.js"></script>
     <script src="wall07.js"></script>
     <script src="wall815.js"></script>
     <script src="player.js"></script>
@@ -19,7 +20,10 @@
 </head>
 
 <body>
-    <pre id="debugdiv" style="position:absolute; left: 20px; z-index: 3;"></pre>
+    <div id="debugdiv" style="position:absolute; left: 20px; z-index: 3;">
+        <label>Stepwise <input type="checkbox" id="stepwise" /></label>
+        <pre id="debugpre"><input type="checkbox" id="stepwise" /> </pre>
+    </div>
     <canvas id="canvas-static" width="800" height="480" style="z-index: 1; position:absolute; left: 0px; top: 0px;"></canvas>
     <canvas id="canvas-movable" width="800" height="480" style="z-index: 2; position:absolute; left: 0px; top: 0px;"></canvas>    
     <!-- <object id="circle-svg" width="400" height="300" type="image/svg+xml" data="circle.svg"></object> -->
