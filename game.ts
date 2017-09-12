@@ -134,7 +134,12 @@ let stepwise = false;
         for (let x = Math.floor(forwardEdge / tilesize);
           x < world.width && x > -1;
           x += Math.sign(player.speed.x)) {
-          if (world.grid[y][x].collide) {
+          if (world.grid[y][x].collide && !(world.grid[y][x] instanceof Slope)) {
+            // Do not add if directly after end of slope
+            if (world.grid[y][x - 1] instanceof Slope && world.grid[y][x - 1].top(Tile.TS) === 0 ||
+                world.grid[y][x + 1] instanceof Slope && world.grid[y][x + 1].top(0) === 0) {
+                  continue;
+                }
             obstacles.push({ x, y });
             debug(x, y);
             break;
@@ -142,18 +147,6 @@ let stepwise = false;
         }
       }
       let closestObstacle: { x: number, y: number };
-      /*
-      for (const o of obstacles) {
-        if (closestObstacle === undefined) {
-          closestObstacle = o;
-        } else {
-          if (Math.abs(o.x * tilesize - forwardEdge) <
-            Math.abs(closestObstacle.x * tilesize - forwardEdge)) {
-            closestObstacle = o;
-          }
-        }
-      }
-      */
       for (const o of obstacles) {
         if (closestObstacle === undefined) {
           closestObstacle = o;
@@ -185,7 +178,7 @@ let stepwise = false;
       if (world.grid[co.y][co.x] instanceof Slope) {
         lowerSideOfSlope = goingLeft ? world.grid[co.y][co.x].top(Tile.TS) > world.grid[co.y][co.x].top(0) :
                                                world.grid[co.y][co.x].top(0) > world.grid[co.y][co.x].top(Tile.TS);
-        debug(`Slope ${lowerSideOfSlope ? "Low" : "High"}`);
+        // debug(`Slope ${lowerSideOfSlope ? "Low" : "High"}`);
       }
       let distToWall = 0;
       if (player.speed.x < 0) {
@@ -193,40 +186,41 @@ let stepwise = false;
       } else {
         distToWall = co.x * tilesize - (player.position.x + player.size.x);
       }
-      // const distToWall = Math.abs(co.x * tilesize + (player.speed.x < 0 ? tilesize : 0) -
-      //   (player.position.x + (player.speed.x > 0 ? player.size.x : 0)));
-      debug("distToWall", distToWall);
+      debug(distToWall);
       const walkDistance = Math.abs(player.speed.x * dt);
-      debug(distToWall, walkDistance);
+      const yTile = ~~((player.position.y + player.size.y) / Tile.TS);
       if (distToWall < walkDistance) {
-        if (lowerSideOfSlope) {
-          player.position.x += Math.sign(player.speed.x) * walkDistance;
-          if (player.onGround) {
-            if (player.speed.x < 0) {
-              // tslint:disable-next-line:no-bitwise
-              const yDiff = world.grid[co.y][~~(player.position.x / Tile.TS)]
-              .top((player.position.x) % Tile.TS);
-              // player.position.y = co.y * Tile.TS + yDiff;
-              player.position.y = co.y * tilesize + yDiff - player.size.y;
-              debug(yDiff);
-            } else {
-              // tslint:disable-next-line:no-bitwise
-              const yDiff = world.grid[co.y][~~((player.position.x + player.size.x) / Tile.TS)]
-              .top((player.position.x + player.size.x) % Tile.TS);
-              // player.position.y = co.y * Tile.TS + yDiff;
-              player.position.y = co.y * tilesize + yDiff - player.size.y;
-              debug(yDiff);
-            }
-          }
-        } else {
-          player.position.x = /*Math.round(*/(player.position.x +
-            Math.sign(player.speed.x) * distToWall) /* * 100) / 100*/;
-          player.speed.x = 0;
-        }
+        player.position.x += Math.sign(player.speed.x) * walkDistance;
+        player.position.x = /*Math.round(*/(player.position.x +
+          Math.sign(player.speed.x) * distToWall) /* * 100) / 100*/;
+        player.speed.x = 0;
 
       } else {
+        const prevXTile = ~~((player.position.x + (goingLeft ? 0 : player.size.x)) / Tile.TS);
         player.position.x = /*Math.round(*/(player.position.x +
               Math.sign(player.speed.x) * walkDistance)/* * 100) / 100*/;
+        const xTileNew = ~~((player.position.x + (goingLeft ? 0 : player.size.x)) / Tile.TS);
+        // Move to full block height if previous tile was slope ending upwards
+        debug("X", prevXTile, xTileNew);
+        if (xTileNew !== prevXTile &&
+            world.grid[yTile][prevXTile] instanceof Slope &&
+            world.grid[yTile][prevXTile].top(goingLeft ? 0 : Tile.TS) === 0) {
+          debug("SLOPE END");
+          player.position.y = yTile * Tile.TS - player.size.y;
+        }
+      }
+      // Moving the player up if they are standing "inside" a ramp
+      const newXTile  = ~~((player.position.x + (goingLeft ? 0 : player.size.x)) / Tile.TS);
+      let slopeTileY: number;
+      if (world.grid[yTile][newXTile] instanceof Slope) {
+        slopeTileY = yTile;
+      } else if (world.grid[yTile - 1][newXTile] instanceof Slope) {
+        slopeTileY = yTile - 1;
+      }
+      if (slopeTileY !== undefined) {
+        debug("SLOPE", world.grid[slopeTileY][newXTile].top(player.position.x));
+        player.position.y = slopeTileY * Tile.TS + world.grid[slopeTileY][newXTile]
+              .top((player.position.x + (goingLeft ? 0 : player.size.x)) % Tile.TS) - player.size.y;
       }
     }
 
@@ -234,9 +228,8 @@ let stepwise = false;
       const obstacles = Array<{ x: number, y: number }>();
       const tilesize = world.tilesize;
       const forwardEdge = player.speed.y > 0 ? player.position.y + player.size.y : player.position.y;
-      const rowmin = Math.floor(player.position.x / tilesize);
-      const rowmax = Math.ceil((player.position.x  + player.size.x) / tilesize) - 1;
-
+      const colmin = Math.floor(player.position.x / tilesize);
+      const colmax = Math.ceil((player.position.x  + player.size.x) / tilesize) - 1;
       /**
        * Needs separate code for X and Y axis, as we nee to loop the other axis first,
        * in order to be able to break after the first hit.
@@ -250,12 +243,13 @@ let stepwise = false;
        * Therefore, the outer loop decides the column, then we follow through on that column
        * until we have a hit
        */
-      for (let x = rowmin; x <= rowmax; x++) {
-        for (let y = Math.floor(forwardEdge / tilesize);
+      for (let x = colmin; x <= colmax; x++) {
+        for (let y = Math.floor(forwardEdge / tilesize) - 1;
           y < world.height && y > -1;
           y += Math.sign(player.speed.y)) {
           if (world.grid[y][x].collide) {
             obstacles.push({ x, y });
+            // debug(x, y);
             // debug(x, y, world.grid[y][x].top(player.position.x % Tile.TS));
             break;
           }
@@ -302,7 +296,8 @@ let stepwise = false;
           }
         }
       }
-      // debug(closestObstacle.x, closestObstacle.y);
+      // debug("Closest: ", closestObstacle.x, closestObstacle.y);
+      // debug(`Top: ${world.grid[closestObstacle.y][closestObstacle.x].top(player.position.x % Tile.TS)}`);
       for (const obstacle of world.movables) {
         // Check if it is closer
       }
@@ -370,14 +365,14 @@ let stepwise = false;
   }
 
   function addDefaultDebug(tFrame: number) {
-    debugQueue.push(`Pos: ${Math.trunc(player.position.x)}, ${Number(player.position.y).toFixed(2)}`);
-    debugQueue.push(`Speed: ${Number(player.speed.x).toFixed(2)}, ${Number(player.speed.y).toFixed(2)}`);
-    debugQueue.push(`TargSpeed: ${Number(player.targetSpeed.x).toFixed(2)},` +
+    debugQueue.unshift(`Pos: ${Number(player.position.x).toFixed(2)}, ${Number(player.position.y).toFixed(2)}`);
+    debugQueue.unshift(`Speed: ${Number(player.speed.x).toFixed(2)}, ${Number(player.speed.y).toFixed(2)}`);
+    debugQueue.unshift(`TargSpeed: ${Number(player.targetSpeed.x).toFixed(2)},` +
             ` ${Number(player.targetSpeed.y).toFixed(2)}`);
-    debugQueue.push("Grounded: " + player.onGround);
+    debugQueue.unshift("Grounded: " + player.onGround);
     // tslint:disable-next-line:no-bitwise
     const fps = ~~(1000 / (tFrame - lastTick));
-    debugQueue.push("FPS: " + fps);
+    debugQueue.unshift("FPS: " + fps);
   }
 
   function rafHandler() {
@@ -392,10 +387,9 @@ let stepwise = false;
     }
     clearMovable();
     debugQueue = [];
-    addDefaultDebug(tFrame);
-
     update(tFrame);
     renderMovable();
+    addDefaultDebug(tFrame);
     renderDebug();
     lastTick = tFrame;
   }

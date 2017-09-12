@@ -9,6 +9,7 @@
         "max-classes-per-file": false,
         "no-reference": false,
         "no-console": false,
+        "no-bitwise": false,
         "no-namespace": [
             false
         ],
